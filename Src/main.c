@@ -41,6 +41,10 @@ int main(void)
 
   // set bit 24 to configure pin 12 (green LED) of GPIOD to "general purpose output mode"
   GPIOD_MODER |= (1 << 24);
+  // also set bit 26 to configure pin 13 (<> LED) of GPIOD to "g/p output mode"
+  GPIOD_MODER |= (1 << 26);
+  //also set bit 28 to configure pin 14 (<> LED) of GPIOD to "g/p output mode"
+  GPIOD_MODER |= (1 << 28);
   // also set bit 30 to configure pin 15 (blue LED) of GPIOD to "g/p output mode"
   GPIOD_MODER |= (1 << 30);
 
@@ -59,6 +63,8 @@ int main(void)
 	while(1) {
     for (volatile int i=1; i<=600000; i++){} // crude delay (no clock initialization currently)
     GPIOD_ODR ^= (1 << 12); // flip ODR12 (pin 12, green LED) every ~0.4s
+    GPIOD_ODR ^= (1 << 13); // also flip ODR13 (pin 13, <> LED)
+    GPIOD_ODR ^= (1 << 14); // also flip ODR14 (pin 14, <> LED)
     GPIOD_ODR ^= (1 << 15); // also flip ODR15 (pin 15, blue LED)
   }
 }
