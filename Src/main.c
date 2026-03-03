@@ -22,6 +22,12 @@
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
 #endif
 
+static void delay_ms(volatile uint32_t ms) {
+  while (ms--) {
+    for (volatile uint32_t i = 0; i < 40000; ++i) { __asm__("nop"); }
+  }
+}
+
 int main(void)
 {
   // RCC base address (from the memory map chapter). Note: end all hex address defines with UL (unsigned long)
@@ -32,6 +38,8 @@ int main(void)
 
   // Set bit 3 to enable GPIOD clock. Note: this enables clock for PD0 - PD15
   RCC_AHB1ENR |= (1 << 3);
+  // Readback after clock enable (force CPU to wait for write to complete)
+  volatile unsigned int tmp = RCC_AHB1ENR; (void) tmp; // void tmp tells compiler to ignore unused var
 
   // GPIOD base address (from memory map). Note: unsigned long tells compiler to treat it as 32-bit value rather than signed integer
   #define GPIOD_BASE  0x40020C00UL
@@ -48,23 +56,23 @@ int main(void)
   // also set bit 30 to configure pin 15 (blue LED) of GPIOD to "g/p output mode"
   GPIOD_MODER |= (1 << 30);
 
-  // GPIOD_BSRR (bit set/reset register) is at offset 0x18
-  #define GPIOD_BSRR (*(volatile unsigned int *)(GPIOD_BASE + 0x18))
-
-  // set BS12 to 'high' i.e. turn on green LED
-  // note: no need for |= here, BSRR is write only
-  GPIOD_BSRR = (1 << 12);
-  // also set BS15 to 'high' i.e. turn on blue LED
-  //GPIOD_BSRR = (1 << 15); --> leave this one off initially for staggered effect
-
+  // GPIOD_ODR (output data register) is at offset 0x14
   #define GPIOD_ODR (*(volatile unsigned int *)(GPIOD_BASE + 0x14))
 
-  /* Loop forever */
+  // GPIOD_BSRR (bit set/reset register) is at offset 0x18
+  #define GPIOD_BSRR (*(volatile unsigned int *)(GPIOD_BASE + 0x18))
+  
+  // create LED bitmask array
+  const uint32_t leds[] = { (1U << 12), (1U << 13), (1U << 14), (1U << 15) };
+  
+  // Loop forever
 	while(1) {
-    for (volatile int i=1; i<=600000; i++){} // crude delay (no clock initialization currently)
-    GPIOD_ODR ^= (1 << 12); // flip ODR12 (pin 12, green LED) every ~0.4s
-    GPIOD_ODR ^= (1 << 13); // also flip ODR13 (pin 13, <> LED)
-    GPIOD_ODR ^= (1 << 14); // also flip ODR14 (pin 14, <> LED)
-    GPIOD_ODR ^= (1 << 15); // also flip ODR15 (pin 15, blue LED)
+    for (int i = 0; i < 4; ++i) {
+        // reset all four pins (write 1s to upper half of BSRR to reset)
+        GPIOD_BSRR = (leds[0] << 16) | (leds[1] << 16) | (leds[2] << 16) | (leds[3] << 16);
+        // set only the 'chosen' LED
+        GPIOD_BSRR = leds[i];
+        delay_ms(20);
+    }
   }
 }
